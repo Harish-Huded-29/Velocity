@@ -1,0 +1,1313 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Velocity — Drive Downloader</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@700;800&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg:        #080b10;
+  --surface:   #0d1117;
+  --surface2:  #131920;
+  --surface3:  #1a2230;
+  --border:    #1e2d3d;
+  --border2:   #243447;
+  --accent:    #00d4ff;
+  --accent2:   #7b5ea7;
+  --accent3:   #ff6b35;
+  --green:     #00e676;
+  --red:       #ff4444;
+  --yellow:    #ffd740;
+  --text:      #e8edf3;
+  --text2:     #7a8fa6;
+  --text3:     #4a5f75;
+  --mono:      'JetBrains Mono', monospace;
+  --sans:      'Space Grotesk', sans-serif;
+  --display:   'Syne', sans-serif;
+  --glow:      0 0 20px rgba(0,212,255,0.15);
+  --glow2:     0 0 40px rgba(0,212,255,0.08);
+}
+
+html { scroll-behavior: smooth; }
+
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* ── Animated background grid ── */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0,212,255,0.03) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,212,255,0.03) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Radial glow orbs ── */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 600px 400px at 80% -10%, rgba(0,212,255,0.07) 0%, transparent 60%),
+    radial-gradient(ellipse 500px 400px at -10% 80%, rgba(123,94,167,0.08) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── Layout ── */
+.page {
+  position: relative;
+  z-index: 1;
+  max-width: 720px;
+  margin: 0 auto;
+  padding: 52px 24px 100px;
+}
+
+/* ── Header ── */
+.header { margin-bottom: 48px; }
+
+.header-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.eyebrow-pill {
+  background: rgba(0,212,255,0.08);
+  border: 1px solid rgba(0,212,255,0.2);
+  color: var(--accent);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 5px 12px;
+  border-radius: 100px;
+}
+
+.eyebrow-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: blink 2s infinite;
+}
+
+@keyframes blink {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+.header h1 {
+  font-family: var(--display);
+  font-size: clamp(28px, 6vw, 72px);
+  font-weight: 800;
+  line-height: 0.88;
+  letter-spacing: -0.02em;
+  overflow: hidden;
+  word-break: break-word;
+}
+
+.header h1 .dim { color: var(--text3); }
+.header h1 .accent-glow {
+  color: var(--accent);
+  text-shadow: 0 0 30px rgba(0,212,255,0.5), 0 0 60px rgba(0,212,255,0.2);
+}
+
+.header-tagline {
+  margin-top: 20px;
+  font-size: 14px;
+  color: var(--text2);
+  font-weight: 400;
+  line-height: 1.7;
+  max-width: 420px;
+  border-left: 2px solid var(--border2);
+  padding-left: 16px;
+}
+
+/* ── Stats strip ── */
+.stats-strip {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 24px;
+  background: var(--surface);
+}
+
+.stat-item {
+  padding: 18px 20px;
+  border-right: 1px solid var(--border);
+  position: relative;
+  overflow: hidden;
+}
+.stat-item:last-child { border-right: none; }
+.stat-item::before {
+  content: '';
+  position: absolute;
+  bottom: 0; left: 0;
+  width: 100%; height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0;
+  transition: opacity 0.4s;
+}
+.stat-item.lit::before { opacity: 1; }
+
+.stat-val {
+  font-family: var(--display);
+  font-size: clamp(18px, 5vw, 30px);
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text2);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+.stat-val.active {
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0,212,255,0.5);
+}
+
+.stat-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-top: 5px;
+}
+
+/* ── Panel ── */
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+}
+
+.panel-header {
+  padding: 16px 24px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: var(--surface2);
+}
+
+.panel-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--text3);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.panel-title::before {
+  content: '';
+  display: inline-block;
+  width: 10px; height: 10px;
+  border: 1px solid var(--border2);
+  border-radius: 2px;
+  background: var(--surface3);
+}
+
+.status-indicator {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--text3);
+}
+
+.status-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  background: var(--border2);
+  transition: all 0.3s;
+}
+.status-dot.active {
+  background: var(--accent);
+  box-shadow: 0 0 8px var(--accent);
+  animation: pulse-dot 1.4s infinite;
+}
+.status-dot.done {
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+}
+
+@keyframes pulse-dot {
+  0%, 100% { box-shadow: 0 0 8px var(--accent); }
+  50% { box-shadow: 0 0 16px var(--accent), 0 0 28px rgba(0,212,255,0.2); }
+}
+
+.panel-body { padding: 24px; }
+
+/* ── Input ── */
+.input-group {
+  display: flex;
+  gap: 10px;
+}
+
+.input-wrapper {
+  flex: 1;
+  position: relative;
+}
+
+.input-icon {
+  position: absolute;
+  left: 14px; top: 50%;
+  transform: translateY(-50%);
+  color: var(--text3);
+  font-size: 15px;
+}
+
+input[type="text"] {
+  width: 100%;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 14px 14px 14px 42px;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+input[type="text"]:focus {
+  border-color: rgba(0,212,255,0.5);
+  box-shadow: 0 0 0 3px rgba(0,212,255,0.08);
+}
+input[type="text"]::placeholder { color: var(--text3); }
+
+.btn-analyze {
+  background: var(--accent);
+  color: var(--bg);
+  border: none;
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 13px;
+  padding: 0 24px;
+  cursor: pointer;
+  transition: all 0.15s;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  box-shadow: 0 0 20px rgba(0,212,255,0.25);
+}
+.btn-analyze:hover {
+  background: #33dbff;
+  box-shadow: 0 0 30px rgba(0,212,255,0.4);
+}
+.btn-analyze:active { transform: scale(0.97); }
+.btn-analyze:disabled {
+  opacity: 0.4; cursor: not-allowed;
+  box-shadow: none; transform: none;
+}
+
+/* ── Error banner ── */
+.error-banner {
+  display: none;
+  margin-top: 16px;
+  background: rgba(255,68,68,0.08);
+  border: 1px solid rgba(255,68,68,0.25);
+  border-radius: 10px;
+  padding: 14px 16px;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--red);
+  animation: slide-up 0.3s ease;
+}
+.error-banner.show { display: flex; gap: 10px; align-items: flex-start; }
+.error-banner .err-icon { flex-shrink: 0; font-size: 14px; }
+.error-banner .err-text { line-height: 1.6; }
+
+/* ── File card ── */
+.file-card {
+  display: none;
+  margin-top: 20px;
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 20px;
+  animation: slide-up 0.35s ease;
+  position: relative;
+  overflow: hidden;
+}
+.file-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  opacity: 0.6;
+}
+.file-card.show { display: block; }
+
+.file-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 16px;
+  gap: 12px;
+}
+
+.file-icon-name { display: flex; align-items: center; gap: 14px; flex: 1; min-width: 0; }
+
+.file-icon {
+  width: 44px; height: 44px;
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
+  flex-shrink: 0;
+}
+
+.file-info { min-width: 0; }
+
+.file-name {
+  font-weight: 600;
+  font-size: 14px;
+  word-break: break-all;
+  line-height: 1.4;
+  color: var(--text);
+}
+
+.file-meta {
+  font-family: var(--mono);
+  font-size: 10.5px;
+  color: var(--text3);
+  margin-top: 3px;
+  letter-spacing: 0.04em;
+}
+
+.file-size-badge {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 800;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0,212,255,0.4);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+.file-actions {
+  display: flex;
+  gap: 10px;
+}
+
+.btn-download {
+  flex: 1;
+  background: linear-gradient(135deg, var(--accent) 0%, #0099cc 100%);
+  color: var(--bg);
+  border: none;
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-weight: 700;
+  font-size: 14px;
+  padding: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 4px 20px rgba(0,212,255,0.25);
+}
+.btn-download:hover {
+  box-shadow: 0 6px 30px rgba(0,212,255,0.4);
+  transform: translateY(-1px);
+}
+.btn-download:active { transform: scale(0.98); }
+.btn-download:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
+
+.btn-reset {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-family: var(--sans);
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text2);
+  padding: 0 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.btn-reset:hover { border-color: var(--text2); color: var(--text); }
+
+/* ── Progress ── */
+.progress-wrap {
+  display: none;
+  margin-top: 20px;
+  animation: slide-up 0.3s ease;
+}
+.progress-wrap.show { display: block; }
+
+.prog-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+
+.prog-label {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  letter-spacing: 0.08em;
+}
+
+.prog-pct {
+  font-family: var(--display);
+  font-size: 44px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+  transition: color 0.3s, text-shadow 0.3s;
+}
+.prog-pct.done {
+  color: var(--green);
+  text-shadow: 0 0 30px rgba(0,230,118,0.4);
+}
+
+.prog-track {
+  height: 6px;
+  background: var(--surface3);
+  border-radius: 100px;
+  overflow: hidden;
+  margin-bottom: 18px;
+  border: 1px solid var(--border);
+}
+
+.prog-fill {
+  height: 100%;
+  width: 0%;
+  background: linear-gradient(90deg, var(--accent2) 0%, var(--accent) 100%);
+  border-radius: 100px;
+  transition: width 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  box-shadow: 0 0 12px rgba(0,212,255,0.5);
+}
+
+.prog-fill::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+  animation: shimmer 1.8s infinite;
+}
+
+/* ── Metrics ── */
+.metrics-row {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.metric-box {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 12px 14px;
+}
+
+.metric-val {
+  font-family: var(--display);
+  font-size: 26px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--text);
+}
+
+.metric-lbl {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-top: 4px;
+}
+
+/* ── Chunk grid ── */
+.chunk-section { margin-bottom: 18px; }
+
+.chunk-section-label {
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--text3);
+  margin-bottom: 8px;
+}
+
+.chunk-grid { display: flex; flex-wrap: wrap; gap: 3px; }
+
+.chunk-cell {
+  width: 13px; height: 13px;
+  border-radius: 3px;
+  background: var(--surface3);
+  border: 1px solid var(--border);
+  transition: all 0.2s;
+}
+.chunk-cell.active {
+  background: rgba(0,212,255,0.3);
+  border-color: var(--accent);
+  box-shadow: 0 0 6px rgba(0,212,255,0.4);
+  animation: chunk-pulse 0.9s ease infinite;
+}
+.chunk-cell.done {
+  background: rgba(0,230,118,0.25);
+  border-color: var(--green);
+  animation: none;
+}
+.chunk-cell.error {
+  background: rgba(255,68,68,0.3);
+  border-color: var(--red);
+}
+
+/* ── Terminal log ── */
+.log-terminal {
+  background: #040709;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  overflow: hidden;
+}
+
+.log-terminal-header {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface2);
+}
+
+.term-dot { width: 10px; height: 10px; border-radius: 50%; }
+.term-dot:nth-child(1) { background: #ff5f56; }
+.term-dot:nth-child(2) { background: #ffbd2e; }
+.term-dot:nth-child(3) { background: #27c93f; }
+
+.term-title {
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--text3);
+  margin-left: 6px;
+  letter-spacing: 0.1em;
+}
+
+.log-body {
+  padding: 12px 16px;
+  font-family: var(--mono);
+  font-size: 11.5px;
+  color: rgba(255,255,255,0.35);
+  max-height: 160px;
+  overflow-y: auto;
+  line-height: 1.9;
+  scrollbar-width: thin;
+  scrollbar-color: var(--border2) transparent;
+}
+.log-body::-webkit-scrollbar { width: 4px; }
+.log-body::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 4px; }
+
+.log-line { animation: fade-in 0.2s ease; }
+.log-line .ts { color: var(--text3); }
+.log-line.ok .msg { color: var(--green); }
+.log-line.err .msg { color: var(--red); }
+.log-line.info .msg { color: var(--accent); }
+.log-line.warn .msg { color: var(--yellow); }
+
+/* ── How it works ── */
+.how-panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 28px 24px;
+  box-shadow: 0 4px 32px rgba(0,0,0,0.4);
+}
+
+.how-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 24px;
+}
+
+.how-title {
+  font-family: var(--display);
+  font-size: 24px;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  color: var(--text);
+}
+
+.how-badge {
+  background: rgba(0,212,255,0.1);
+  color: var(--accent);
+  border: 1px solid rgba(0,212,255,0.2);
+  font-family: var(--mono);
+  font-size: 10px;
+  padding: 4px 10px;
+  border-radius: 4px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.steps {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.step {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.step:hover {
+  border-color: var(--border2);
+  box-shadow: 0 0 20px rgba(0,0,0,0.3);
+}
+
+.step-num {
+  font-family: var(--display);
+  font-size: 38px;
+  font-weight: 800;
+  line-height: 1;
+  color: var(--surface3);
+  margin-bottom: 8px;
+}
+
+.step-title {
+  font-weight: 600;
+  font-size: 13px;
+  margin-bottom: 4px;
+  color: var(--text);
+}
+
+.step-desc {
+  font-size: 12px;
+  color: var(--text2);
+  line-height: 1.6;
+}
+
+/* ── Debug notice ── */
+.debug-notice {
+  background: rgba(255,215,64,0.06);
+  border: 1px solid rgba(255,215,64,0.2);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-bottom: 20px;
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--yellow);
+  line-height: 1.7;
+  display: none;
+}
+.debug-notice.show { display: block; }
+.debug-notice strong { color: #ffe082; }
+
+/* ── Toast ── */
+#toast {
+  position: fixed;
+  bottom: 28px; left: 50%;
+  transform: translateX(-50%) translateY(60px);
+  background: var(--surface3);
+  border: 1px solid var(--border2);
+  color: var(--text);
+  font-family: var(--mono);
+  font-size: 12px;
+  padding: 12px 20px;
+  border-radius: 8px;
+  opacity: 0;
+  transition: all 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  z-index: 999;
+  white-space: nowrap;
+  letter-spacing: 0.04em;
+}
+#toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+#toast.ok { background: rgba(0,230,118,0.15); border-color: var(--green); color: var(--green); }
+#toast.error { background: rgba(255,68,68,0.15); border-color: var(--red); color: var(--red); }
+
+/* ── Animations ── */
+@keyframes chunk-pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
+@keyframes shimmer { 0% { transform: translateX(-100%); } 100% { transform: translateX(200%); } }
+@keyframes slide-up { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: translateY(0); } }
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+
+@media (max-width: 600px) {
+  .steps { grid-template-columns: 1fr; }
+  .input-group { flex-direction: column; }
+  .btn-analyze { padding: 14px; width: 100%; }
+  .stats-strip { grid-template-columns: 1fr; }
+  .stat-item { border-right: none; border-bottom: 1px solid var(--border); }
+  .stat-item:last-child { border-bottom: none; }
+  .metrics-row { grid-template-columns: 1fr 1fr; }
+  .file-card-top { flex-direction: column; }
+  .file-size-badge { font-size: 20px; }
+  .page { padding: 32px 16px 80px; }
+}
+</style>
+</head>
+<body>
+
+<div class="page">
+
+  <!-- Header -->
+  <header class="header">
+    <div class="header-eyebrow">
+      <div class="eyebrow-pill">Google Drive · Parallel Engine</div>
+      <div class="eyebrow-dot"></div>
+    </div>
+    <h1><span class="dim">VELO</span><span class="accent-glow">CITY</span></h1>
+    <p class="header-tagline">Direct CDN downloads via parallel range requests. OAuth token handed to the browser — file bytes never touch the server.</p>
+  </header>
+
+  <!-- Stats -->
+  <div class="stats-strip">
+    <div class="stat-item" id="statItemChunks">
+      <div class="stat-val" id="statChunks">—</div>
+      <div class="stat-lbl">Chunks</div>
+    </div>
+    <div class="stat-item" id="statItemSpeed">
+      <div class="stat-val" id="statSpeed">—</div>
+      <div class="stat-lbl">Peak MB/s</div>
+    </div>
+    <div class="stat-item" id="statItemTime">
+      <div class="stat-val" id="statTime">—</div>
+      <div class="stat-lbl">Time</div>
+    </div>
+  </div>
+
+  <!-- Debug notice (hidden until error) -->
+  <div class="debug-notice" id="debugNotice"></div>
+
+  <!-- Main panel -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Drive Link or File ID</span>
+      <div class="status-indicator">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">idle</span>
+      </div>
+    </div>
+    <div class="panel-body">
+
+      <div class="input-group">
+        <div class="input-wrapper">
+          <span class="input-icon">⬡</span>
+          <input type="text" id="driveInput"
+            placeholder="https://drive.google.com/file/d/…  or  paste file ID">
+        </div>
+        <button class="btn-analyze" id="btnAnalyze" onclick="analyze()">Analyze</button>
+      </div>
+
+      <!-- Error banner -->
+      <div class="error-banner" id="errorBanner">
+        <span class="err-icon">⚠</span>
+        <span class="err-text" id="errorText"></span>
+      </div>
+
+      <!-- File card -->
+      <div class="file-card" id="fileCard">
+        <div class="file-card-top">
+          <div class="file-icon-name">
+            <div class="file-icon" id="fileIcon">📄</div>
+            <div class="file-info">
+              <div class="file-name" id="fileName">—</div>
+              <div class="file-meta" id="fileMeta">—</div>
+            </div>
+          </div>
+          <div class="file-size-badge" id="fileSize">—</div>
+        </div>
+        <div class="file-actions">
+          <button class="btn-download" id="btnDownload" onclick="startDownload()">
+            <span>⚡</span> Start Download
+          </button>
+          <button class="btn-reset" onclick="resetAll()">Reset</button>
+        </div>
+      </div>
+
+      <!-- Progress -->
+      <div class="progress-wrap" id="progressWrap">
+        <div class="prog-top">
+          <span class="prog-label" id="progLabel">Initializing…</span>
+          <span class="prog-pct" id="progPct">0%</span>
+        </div>
+        <div class="prog-track">
+          <div class="prog-fill" id="progFill"></div>
+        </div>
+
+        <div class="metrics-row">
+          <div class="metric-box">
+            <div class="metric-val" id="mSpeed">0</div>
+            <div class="metric-lbl">MB / s</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val" id="mETA">—</div>
+            <div class="metric-lbl">ETA</div>
+          </div>
+          <div class="metric-box">
+            <div class="metric-val" id="mDone">0</div>
+            <div class="metric-lbl">Chunks ✓</div>
+          </div>
+        </div>
+
+        <div class="chunk-section">
+          <div class="chunk-section-label">Chunk map</div>
+          <div class="chunk-grid" id="chunkGrid"></div>
+        </div>
+
+        <div class="log-terminal">
+          <div class="log-terminal-header">
+            <div class="term-dot"></div>
+            <div class="term-dot"></div>
+            <div class="term-dot"></div>
+            <span class="term-title">velocity.log</span>
+          </div>
+          <div class="log-body" id="logBody"></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- How it works -->
+  <div class="how-panel">
+    <div class="how-header">
+      <div class="how-title">HOW IT WORKS</div>
+      <div class="how-badge">Zero Proxy</div>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">01</div>
+        <div class="step-title">Auth Token</div>
+        <div class="step-desc">Apps Script hands the browser a short-lived OAuth token — file bytes never touch the server.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">02</div>
+        <div class="step-title">Direct CDN</div>
+        <div class="step-desc">Browser fetches straight from Google's CDN via HTTP Range headers for maximum throughput.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">03</div>
+        <div class="step-title">5× Parallel</div>
+        <div class="step-desc">Five chunks download simultaneously, saturating your bandwidth instead of single-streaming.</div>
+      </div>
+      <div class="step">
+        <div class="step-num">04</div>
+        <div class="step-title">Assembly</div>
+        <div class="step-desc">Chunks are stitched into a Blob in-memory and saved with the original filename.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<div id="toast"></div>
+
+<script>
+// ── Config ──────────────────────────────────────────────
+const CHUNK_SIZE   = 10 * 1024 * 1024; // 10 MB
+const MAX_PARALLEL = 5;
+const MAX_RETRIES  = 3;
+const RETRY_DELAY  = 1200;
+
+// ── State ───────────────────────────────────────────────
+let fileInfo      = null;
+let chunkCells    = [];
+let peakSpeed     = 0;
+let isDownloading = false;
+
+// ── google.script.run safety wrapper ───────────────────
+// This guards against the case where the page is opened
+// outside of an Apps Script deployment (e.g. locally).
+function isAppsScript() {
+  return typeof google !== 'undefined' &&
+         google.script  !== 'undefined' &&
+         typeof google.script.run === 'object';
+}
+
+// ── Analyze ─────────────────────────────────────────────
+function analyze() {
+  const raw = document.getElementById('driveInput').value.trim();
+  if (!raw) { showError('Paste a Google Drive link or file ID first.'); return; }
+
+  hideError();
+  setBtnDisabled('btnAnalyze', true, 'Analyzing…');
+  setDot('active', 'analyzing');
+  log('Extracting file ID…', 'info');
+
+  // ── Guard: must run inside Apps Script ──
+  if (!isAppsScript()) {
+    setBtnDisabled('btnAnalyze', false, 'Analyze');
+    setDot('', 'idle');
+    showDebug(
+      '<strong>NOT running inside an Apps Script deployment.</strong><br>' +
+      'Open this page via your deployed Apps Script Web App URL ' +
+      '(e.g. <code>https://script.google.com/macros/s/…/exec</code>), ' +
+      'not directly from the file system or a static host.'
+    );
+    log('Error: google.script.run not available', 'err');
+    return;
+  }
+
+  google.script.run
+    .withSuccessHandler(function(info) {
+      setBtnDisabled('btnAnalyze', false, 'Analyze');
+
+      if (!info || !info.success) {
+        const errMsg = (info && info.error) ? info.error : 'Unknown error from Apps Script.';
+        setDot('', 'idle');
+        showError(errMsg);
+        log('Error: ' + errMsg, 'err');
+        return;
+      }
+
+      fileInfo = info;
+      renderFileCard(info);
+      setDot('done', 'ready');
+      log('Found: ' + info.name + ' · ' + fmtBytes(info.size), 'ok');
+      toast('File found ✓', 'ok');
+    })
+    .withFailureHandler(function(err) {
+      setBtnDisabled('btnAnalyze', false, 'Analyze');
+      setDot('', 'idle');
+      const msg = err.message || err.toString();
+      showError('Apps Script error: ' + msg);
+      log('Script failure: ' + msg, 'err');
+
+      // Common: authorization not yet granted
+      if (msg.indexOf('Authorization') !== -1 || msg.indexOf('auth') !== -1) {
+        showDebug(
+          '<strong>Authorization required.</strong><br>' +
+          'Open the deployed web app URL directly in your browser. ' +
+          'The first time, Google will ask you to authorize the script. ' +
+          'After granting access, try again.'
+        );
+      }
+    })
+    .getFileInfo(raw);
+}
+
+function renderFileCard(info) {
+  const chunks = Math.ceil(info.size / CHUNK_SIZE);
+  document.getElementById('fileIcon').textContent = mimeIcon(info.mimeType);
+  document.getElementById('fileName').textContent = info.name;
+  document.getElementById('fileMeta').textContent =
+    (info.mimeType || 'unknown') + ' · ' + chunks + ' chunk' + (chunks !== 1 ? 's' : '') + ' × 10 MB';
+  document.getElementById('fileSize').textContent = fmtBytes(info.size);
+  document.getElementById('statChunks').textContent = chunks;
+  document.getElementById('statChunks').classList.add('active');
+  document.getElementById('fileCard').classList.add('show');
+}
+
+// ── Download ────────────────────────────────────────────
+async function startDownload() {
+  if (!fileInfo || isDownloading) return;
+
+  // Validate token is present
+  if (!fileInfo.token) {
+    showError('OAuth token missing. Re-analyze the file to refresh the token.');
+    return;
+  }
+
+  isDownloading = true;
+  peakSpeed = 0;
+  hideError();
+
+  setBtnDisabled('btnDownload', true, 'Downloading…');
+  document.getElementById('progressWrap').classList.add('show');
+  setDot('active', 'downloading');
+
+  const { name, size, token, fileId } = fileInfo;
+  const numChunks  = Math.ceil(size / CHUNK_SIZE);
+  const buffers    = new Array(numChunks);
+  const startTime  = Date.now();
+  let   downloaded = 0;
+  let   chunksDone = 0;
+  let   lastCheck  = { t: startTime, b: 0 };
+
+  // Build chunk grid
+  const grid = document.getElementById('chunkGrid');
+  grid.innerHTML = '';
+  chunkCells = [];
+  for (let i = 0; i < numChunks; i++) {
+    const c = document.createElement('div');
+    c.className = 'chunk-cell';
+    grid.appendChild(c);
+    chunkCells.push(c);
+  }
+
+  log('Starting: ' + numChunks + ' chunks, ' + MAX_PARALLEL + ' parallel streams', 'info');
+
+  const queue = Array.from({ length: numChunks }, (_, i) => ({
+    index: i,
+    start: i * CHUNK_SIZE,
+    end:   Math.min((i + 1) * CHUNK_SIZE - 1, size - 1)
+  }));
+
+  let queueIdx = 0;
+  let active   = 0;
+
+  await new Promise((resolve) => {
+    function pump() {
+      if (queueIdx >= queue.length && active === 0) { resolve(); return; }
+
+      while (active < MAX_PARALLEL && queueIdx < queue.length) {
+        const task = queue[queueIdx++];
+        active++;
+        chunkCells[task.index].classList.add('active');
+        setLabel('Downloading chunk ' + (task.index + 1) + ' / ' + numChunks + '…');
+
+        fetchChunkDirect(fileId, token, task)
+          .then(function(buf) {
+            buffers[task.index] = buf;
+            downloaded += buf.byteLength;
+            chunksDone++;
+            active--;
+
+            chunkCells[task.index].classList.remove('active');
+            chunkCells[task.index].classList.add('done');
+
+            const pct = Math.round((downloaded / size) * 100);
+            document.getElementById('progFill').style.width = pct + '%';
+            document.getElementById('progPct').textContent = pct + '%';
+            document.getElementById('mDone').textContent = chunksDone;
+
+            const now     = Date.now();
+            const elapsed = (now - lastCheck.t) / 1000;
+            if (elapsed >= 0.5) {
+              const delta   = downloaded - lastCheck.b;
+              const speedMB = delta / elapsed / 1024 / 1024;
+              if (speedMB > peakSpeed) {
+                peakSpeed = speedMB;
+                document.getElementById('statSpeed').textContent = speedMB.toFixed(1);
+                document.getElementById('statSpeed').classList.add('active');
+              }
+              const etaSec = (size - downloaded) / (delta / elapsed);
+              document.getElementById('mSpeed').textContent = speedMB.toFixed(1);
+              document.getElementById('mETA').textContent = fmtSec(etaSec);
+              lastCheck = { t: now, b: downloaded };
+            }
+
+            pump();
+          })
+          .catch(function(err) {
+            chunkCells[task.index].classList.remove('active');
+            chunkCells[task.index].classList.add('error');
+            log('Chunk ' + task.index + ' failed: ' + err.message, 'err');
+            active--;
+            pump();
+          });
+      }
+    }
+    pump();
+  });
+
+  // Merge & save
+  setLabel('Assembling file…');
+  log('All chunks received — merging…', 'info');
+
+  const totalLen = buffers.reduce(function(s, b) { return s + (b ? b.byteLength : 0); }, 0);
+  const merged   = new Uint8Array(totalLen);
+  let   offset   = 0;
+  for (const b of buffers) {
+    if (b) { merged.set(new Uint8Array(b), offset); offset += b.byteLength; }
+  }
+
+  const blob    = new Blob([merged], { type: fileInfo.mimeType || 'application/octet-stream' });
+  const blobUrl = URL.createObjectURL(blob);
+  const a       = document.createElement('a');
+  a.href        = blobUrl;
+  a.download    = name;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(function() { URL.revokeObjectURL(blobUrl); }, 8000);
+
+  const totalSec = ((Date.now() - startTime) / 1000).toFixed(1);
+  document.getElementById('statTime').textContent = totalSec + 's';
+  document.getElementById('statTime').classList.add('active');
+  document.getElementById('progPct').classList.add('done');
+  document.getElementById('progFill').style.width = '100%';
+
+  setLabel('Complete!');
+  setDot('done', 'complete');
+  log('Done in ' + totalSec + 's · Peak ' + peakSpeed.toFixed(1) + ' MB/s', 'ok');
+  toast('Download complete ✓', 'ok');
+
+  setBtnDisabled('btnDownload', false, 'Start Download');
+  isDownloading = false;
+}
+
+// ── Fetch chunk with retries ─────────────────────────────
+async function fetchChunkDirect(fileId, token, task) {
+  const url = 'https://www.googleapis.com/drive/v3/files/' + fileId + '?alt=media';
+  let tries = MAX_RETRIES;
+  while (tries > 0) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          'Authorization': 'Bearer ' + token,
+          'Range': 'bytes=' + task.start + '-' + task.end
+        }
+      });
+      // 206 = Partial Content (correct for range requests)
+      // 200 = some servers return 200 even for range requests
+      if (!res.ok && res.status !== 206) {
+        throw new Error('HTTP ' + res.status);
+      }
+      return await res.arrayBuffer();
+    } catch (e) {
+      tries--;
+      if (tries === 0) throw e;
+      log('Chunk ' + task.index + ' retry (' + (MAX_RETRIES - tries) + '/' + (MAX_RETRIES - 1) + ')…', 'warn');
+      await sleep(RETRY_DELAY);
+    }
+  }
+}
+
+// ── UI Helpers ───────────────────────────────────────────
+function setBtnDisabled(id, disabled, text) {
+  const b = document.getElementById(id);
+  b.disabled = disabled;
+  if (id === 'btnDownload') {
+    b.innerHTML = '<span>⚡</span> ' + text;
+  } else {
+    b.textContent = text;
+  }
+}
+
+function setLabel(t) {
+  document.getElementById('progLabel').textContent = t;
+}
+
+function setDot(state, statusText) {
+  const d = document.getElementById('statusDot');
+  d.className = 'status-dot' + (state ? ' ' + state : '');
+  if (statusText !== undefined) {
+    document.getElementById('statusText').textContent = statusText;
+  }
+}
+
+function showError(msg) {
+  const banner = document.getElementById('errorBanner');
+  document.getElementById('errorText').textContent = msg;
+  banner.classList.add('show');
+}
+
+function hideError() {
+  document.getElementById('errorBanner').classList.remove('show');
+}
+
+function showDebug(html) {
+  const el = document.getElementById('debugNotice');
+  el.innerHTML = html;
+  el.classList.add('show');
+}
+
+function log(msg, type) {
+  type = type || '';
+  const body = document.getElementById('logBody');
+  const line = document.createElement('div');
+  line.className = 'log-line ' + type;
+  const ts = new Date().toLocaleTimeString('en-US', { hour12: false });
+  line.innerHTML = '<span class="ts">' + ts + '</span> <span class="msg">' + escHtml(msg) + '</span>';
+  body.appendChild(line);
+  body.scrollTop = body.scrollHeight;
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function toast(msg, type) {
+  type = type || '';
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = 'show' + (type ? ' ' + type : '');
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function() { t.className = ''; }, 3200);
+}
+
+function resetAll() {
+  fileInfo = null;
+  isDownloading = false;
+  document.getElementById('driveInput').value = '';
+  document.getElementById('fileCard').classList.remove('show');
+  document.getElementById('progressWrap').classList.remove('show');
+  document.getElementById('progFill').style.width = '0%';
+  document.getElementById('progPct').textContent = '0%';
+  document.getElementById('progPct').classList.remove('done');
+  document.getElementById('statChunks').textContent = '—';
+  document.getElementById('statChunks').classList.remove('active');
+  document.getElementById('statSpeed').textContent = '—';
+  document.getElementById('statSpeed').classList.remove('active');
+  document.getElementById('statTime').textContent = '—';
+  document.getElementById('statTime').classList.remove('active');
+  document.getElementById('logBody').innerHTML = '';
+  document.getElementById('chunkGrid').innerHTML = '';
+  document.getElementById('debugNotice').classList.remove('show');
+  hideError();
+  setDot('', 'idle');
+}
+
+// ── Formatters ───────────────────────────────────────────
+function fmtBytes(b) {
+  if (b >= 1e9) return (b / 1e9).toFixed(2) + ' GB';
+  if (b >= 1e6) return (b / 1e6).toFixed(1) + ' MB';
+  if (b >= 1e3) return (b / 1e3).toFixed(0) + ' KB';
+  return b + ' B';
+}
+
+function fmtSec(s) {
+  if (!isFinite(s) || s < 0) return '—';
+  if (s >= 60) return Math.round(s / 60) + 'm ' + Math.round(s % 60) + 's';
+  return Math.round(s) + 's';
+}
+
+function mimeIcon(m) {
+  m = m || '';
+  if (m.includes('video'))  return '🎬';
+  if (m.includes('audio'))  return '🎵';
+  if (m.includes('image'))  return '🖼️';
+  if (m.includes('pdf'))    return '📕';
+  if (m.includes('zip') || m.includes('archive')) return '📦';
+  if (m.includes('spreadsheet') || m.includes('excel')) return '📊';
+  if (m.includes('document') || m.includes('word'))     return '📝';
+  return '📄';
+}
+
+function sleep(ms) { return new Promise(function(r) { setTimeout(r, ms); }); }
+
+// ── Keyboard shortcut ─────────────────────────────────────
+document.getElementById('driveInput').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') analyze();
+});
+</script>
+</body>
+</html>
