@@ -174,11 +174,7 @@ You can tweak these constants at the top of the `<script>` section in `Index.htm
 | Download | Fetch API with `Range` headers → Google Drive CDN |
 | Assembly | `Uint8Array` merge → `Blob` → `URL.createObjectURL` |
 
----
 
-## 📜 License
-
-MIT — free to use, modify, and distribute.
 
 ---
 
