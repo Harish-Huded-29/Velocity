@@ -2,7 +2,6 @@
 
 > Direct CDN downloads via parallel range requests. OAuth token handed to the browser — file bytes never touch the server.
 
-![Velocity UI](screenshot.png)
 
 ---
 
